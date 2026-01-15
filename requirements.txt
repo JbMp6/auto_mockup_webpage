@@ -1,0 +1,7 @@
+greenlet==3.3.0
+ImageIO==2.37.2
+numpy==2.4.1
+pillow==12.1.0
+playwright==1.57.0
+pyee==13.0.0
+typing_extensions==4.15.0

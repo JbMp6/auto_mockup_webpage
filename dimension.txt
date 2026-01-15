@@ -1,0 +1,9 @@
+macbook : haut 120 gauche 110 / 
+          haut 120 droite 744 /
+          bas 527 gauche 110  /
+          bas 527 droite 744  /
+
+iphone : haut 30 gauche 365   /
+         haut 30 droite 714   /
+         bas 738 gauche 365   /
+         bas 738 droite 714   /
