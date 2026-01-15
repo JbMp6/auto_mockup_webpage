@@ -252,6 +252,8 @@ def addOverlayToGif(gif_path: str, overlay_path: str, gif_size: list) -> None :
 
     print(f"GIF with overlay saved at {gif_path[:-4]}with_overlay.gif.")
 
+    return f"{gif_path[:-4]}_with_overlay.gif"
+
 def createMacMockup() -> None :
     """
     Docstring for createMacMockup function.
@@ -259,7 +261,7 @@ def createMacMockup() -> None :
 
     macbook_screen_size = [(110, 120), (744, 120), (110, 527), (744, 527)]
 
-    cleanUpTempFolders()
+    
 
     url = input("Enter the URL of the webpage to screenshot: ")
     width, height = 1920, 1080
@@ -268,9 +270,13 @@ def createMacMockup() -> None :
     
     web_screen = screenWebPage(url, width=width, height=height)                                        # Default desktop dimensions
     createFrameFromImage(web_screen, nbre_frames, height)                                              # Example viewport size
-    gif = createGifFromFrames("frames/", duration=tmps)                                                      # Total GIF duration in seconds
-    addOverlayToGif(gif, "./overlay/mac.png", macbook_screen_size)                            # Add overlay to the GIF
+    gif = createGifFromFrames("frames/", duration=tmps)                                                # Total GIF duration in seconds
+    final_gif = addOverlayToGif(gif, "./overlay/mac.png", macbook_screen_size)                            # Add overlay to the GIF
     print("Mac mockup GIF created successfully: output_with_overlay.gif")
+
+    cleanUpTempFolders()
+
+    return final_gif
     
 def createIphoneMockup() -> None :
     """
@@ -279,8 +285,6 @@ def createIphoneMockup() -> None :
 
     iphone_screen_size = [(365, 30), (714, 30), (365, 738), (714, 738)]
 
-    cleanUpTempFolders()
-
     url = input("Enter the URL of the webpage to screenshot: ")
     width, height = 828, 1792
     nbre_frames = int(input("Enter the number of frames to create: "))
@@ -288,11 +292,100 @@ def createIphoneMockup() -> None :
     
     web_screen = screenWebPage(url, width=width, height=height)                                        # Default desktop dimensions
     createFrameFromImage(web_screen, nbre_frames, height)                                              # Example viewport size
-    gif = createGifFromFrames("frames/", duration=tmps)                                                      # Total GIF duration in seconds
-    addOverlayToGif(gif, "./overlay/iphone.png", iphone_screen_size)                            # Add overlay to the GIF
+    gif = createGifFromFrames("frames/", duration=tmps)                                                # Total GIF duration in seconds
+    final_gif = addOverlayToGif(gif, "./overlay/iphone.png", iphone_screen_size)                                   # Add overlay to the GIF
     print("iPhone mockup GIF created successfully: output_with_overlay.gif")
+
+    cleanUpTempFolders()
     
+    return final_gif
+
+def createMacIphoneMockup() -> None :
+    """
+    Docstring for createMacIphoneMockup function.
+    """
+
+    mac_gif = createMacMockup()
+    iphone_gif = createIphoneMockup()
+
+    # Merge two GIFs side-by-side (Mac left, iPhone right) using PIL
+    def load_gif_frames(path):
+        gif = Image.open(path)
+        frames, durations = [], []
+        try:
+            while True:
+                frames.append(gif.convert("RGBA").copy())
+                durations.append(gif.info.get("duration", 100))
+                gif.seek(gif.tell() + 1)
+        except EOFError:
+            pass
+        return frames, durations
+
+    iphone_frames, iphone_durs = load_gif_frames(iphone_gif)
+    mac_frames, mac_durs = load_gif_frames(mac_gif)
+
+    if not iphone_frames or not mac_frames:
+        print("One of the GIFs has no frames; skipping merge.")
+        return None
+
+    # Shrink factor for iPhone images
+    iphone_scale = 0.7
+    resized_iphone_frames = []
+    for f in iphone_frames:
+        w, h = f.size
+        nw, nh = int(w * iphone_scale), int(h * iphone_scale)
+        resized_iphone_frames.append(f.resize((nw, nh), Image.LANCZOS))
+
+    # Determine combined frame count and per-frame durations
+    n_iphone = len(resized_iphone_frames)
+    n_mac = len(mac_frames)
+    n_frames = max(n_iphone, n_mac)
+
+    combined_frames = []
+    combined_durations = []
+
+    for i in range(n_frames):
+        f_iphone = resized_iphone_frames[min(i, n_iphone - 1)]
+        f_mac = mac_frames[min(i, n_mac - 1)]
+
+        # Mac on the left, iPhone on the right
+        left = f_mac
+        right = f_iphone
+
+        w_left, h_left = left.size
+        w_right, h_right = right.size
+
+        H = max(h_left, h_right)
+        W = w_left + w_right
+
+        # white opaque background
+        base = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+        base.paste(left, (0, (H - h_left) // 2), left)
+        base.paste(right, (w_left, (H - h_right) // 2), right)
+
+        combined_frames.append(base)
+        # durations: use corresponding durations (mac left, iphone right)
+        d_left = mac_durs[min(i, n_mac - 1)]
+        d_right = iphone_durs[min(i, n_iphone - 1)]
+        combined_durations.append(max(d_left, d_right))
+
+    mac_base = os.path.splitext(os.path.basename(mac_gif))[0]
+    iphone_base = os.path.splitext(os.path.basename(iphone_gif))[0]
+    output_name = f"{mac_base}_{iphone_base}_combined.gif"
+
+    combined_frames[0].save(
+        output_name,
+        save_all=True,
+        append_images=combined_frames[1:],
+        duration=combined_durations,
+        loop=0,
+    )
+
+    print(f"Combined GIF saved at {output_name}")
+    return output_name
+
 if __name__ == "__main__":
 
-    createMacMockup()
+    #createMacMockup()
     #createIphoneMockup()
+    createMacIphoneMockup()
